@@ -1,30 +1,44 @@
 pipeline {
-    triggers {
-  pollSCM('* * * * *')
-    }
-
     agent any
-    tools {
-  maven 'M2_HOME'
-}
-
+    tools{
+        maven 'M2_HOME'
+    }
+    environment {
+    registry = '048829404490.dkr.ecr.us-east-1.amazonaws.com/devops_repository'
+    registryCredential = 'jenkins-ecr'
+    dockerimage = ''
+  }
     stages {
-        stage('maven package') {
-            steps {
-                sh 'mvn clean'
-                sh 'mvn install'
-                sh 'mvn package'
+        stage('Checkout'){
+            steps{
+                git branch: 'main', url: 'https://github.com/Biba2022/geolocation.git'
             }
         }
-        stage('test') {
+        stage('Code Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('Test') {
             steps {
                 sh 'mvn test'
             }
         }
-        stage('deploy') {
+        stage('Build Image') {
             steps {
-                echo 'deployement'
+                script{
+                    dockerImage = docker.build registry + ":$BUILD_NUMBER"
+                } 
             }
         }
+        stage('Deploy image') {
+            steps{
+                script{ 
+                    docker.withRegistry("https://"+registry,"ecr:us-east-1:"+registryCredential) {
+                        dockerImage.push()
+                    }
+                }
+            }
+        }  
     }
 }
